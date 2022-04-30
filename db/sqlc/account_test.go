@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func accountRandomTest(t *testing.T) Account {
 	return account
 }
 
-func TestCreatetAccount(t *testing.T) {
+func TestCreateAccount(t *testing.T) {
 	accountRandomTest(t)
 }
 
@@ -59,4 +60,42 @@ func TestUpdateAccount(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, account2)
 
+	require.Equal(t, account1.ID, account2.ID)
+	require.Equal(t, account1.Owner, account2.Owner)
+	require.Equal(t, args.Balance, account2.Balance)
+	require.Equal(t, account1.Currency, account2.Currency)
+	require.WithinDuration(t, account1.CreatedAt, account2.CreatedAt, time.Second)
+
+}
+
+func TestDleteAccout(t *testing.T) {
+	account1 := accountRandomTest(t)
+	id := account1.ID
+
+	err := testQueries.DeleteAccount(context.Background(), id)
+	require.NoError(t, err)
+
+	account2, err := testQueries.GetAccount(context.Background(), id)
+	require.Error(t, err)
+	require.Error(t, err, sql.ErrNoRows.Error())
+	require.Empty(t, account2)
+}
+
+func TestListAccounts(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		accountRandomTest(t)
+	}
+
+	args := ListAccountsParams{
+		Limit:  5,
+		Offset: 5,
+	}
+
+	accounts, err := testQueries.ListAccounts(context.Background(), args)
+	require.NoError(t, err)
+	require.Len(t, accounts, 5)
+
+	for _, account := range accounts {
+		require.NotEmpty(t, account)
+	}
 }
