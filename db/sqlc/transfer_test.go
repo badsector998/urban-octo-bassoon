@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createNewTransfer(t *testing.T) Transfer {
+func createAccounts() Account {
 	//create two accounts as from and to.
 	accTrfArg := CreateAccountParams{
 		Owner:    util.RandomOwner(),
@@ -18,22 +19,20 @@ func createNewTransfer(t *testing.T) Transfer {
 		Currency: util.RandomCurrency(),
 	}
 
-	fromAccount, err := testQueries.CreateAccount(context.Background(), accTrfArg)
-	require.NoError(t, err)
-	require.NotEmpty(t, fromAccount)
-	require.NotZero(t, fromAccount.ID)
-	require.NotZero(t, fromAccount.CreatedAt)
+	account, err := testQueries.CreateAccount(context.Background(), accTrfArg)
+	if err != nil {
+		fmt.Errorf("Errror Creating From Account error code : %v", err)
+	}
 
-	toAccount, err := testQueries.CreateAccount(context.Background(), accTrfArg)
-	require.NoError(t, err)
-	require.NotEmpty(t, toAccount)
-	require.NotZero(t, toAccount.ID)
-	require.NotZero(t, toAccount.CreatedAt)
+	return account
+}
+
+func createNewTransfer(t *testing.T, fromAcc Account, toAcc Account) Transfer {
 
 	//create transfer
 	txArgs := NewTransferParams{
-		FromAccountID: fromAccount.ID,
-		ToAccountID:   toAccount.ID,
+		FromAccountID: fromAcc.ID,
+		ToAccountID:   toAcc.ID,
 		Amount:        util.RandomMoney(),
 	}
 
@@ -46,11 +45,11 @@ func createNewTransfer(t *testing.T) Transfer {
 }
 
 func TestNewTransfer(t *testing.T) {
-	createNewTransfer(t)
+	createNewTransfer(t, createAccounts(), createAccounts())
 }
 
 func TestGetTransfer(t *testing.T) {
-	tx1 := createNewTransfer(t)
+	tx1 := createNewTransfer(t, createAccounts(), createAccounts())
 
 	tx2, err := testQueries.GetTransfer(context.Background(), tx1.ID)
 	require.NoError(t, err)
@@ -60,13 +59,17 @@ func TestGetTransfer(t *testing.T) {
 }
 
 func TestListTransfers(t *testing.T) {
+	fromAcc := createAccounts()
+	toAcc := createAccounts()
 	for i := 0; i < 10; i++ {
-		createNewTransfer(t)
+		createNewTransfer(t, fromAcc, toAcc)
 	}
 
 	args := ListTransfersParams{
-		Limit:  5,
-		Offset: 5,
+		FromAccountID: fromAcc.ID,
+		ToAccountID:   toAcc.ID,
+		Limit:         5,
+		Offset:        5,
 	}
 
 	txList, err := testQueries.ListTransfers(context.Background(), args)
@@ -79,7 +82,7 @@ func TestListTransfers(t *testing.T) {
 }
 
 func TestDeleteTransfer(t *testing.T) {
-	tx1 := createNewTransfer(t)
+	tx1 := createNewTransfer(t, createAccounts(), createAccounts())
 
 	err := testQueries.DeleteTransfer(context.Background(), tx1.ID)
 	require.NoError(t, err)
