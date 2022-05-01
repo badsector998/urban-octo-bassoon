@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/badsector998/urban-octo-bassoon/util"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,8 @@ func createNewEntry(t *testing.T) Entry {
 	createEntryAcc, err := testQueries.CreateAccount(context.Background(), accEntryParam)
 	require.NoError(t, err)
 	require.NotEmpty(t, createEntryAcc)
+	require.NotZero(t, createEntryAcc.ID)
+	require.NotZero(t, createEntryAcc.CreatedAt)
 
 	//create Entry
 	args := NewEntryParams{
@@ -51,6 +54,8 @@ func TestGetEntry(t *testing.T) {
 	entryExcute, err := testQueries.GetEntry(context.Background(), entry.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, entryExcute)
+	require.Equal(t, entryExcute.ID, entry.ID)
+	require.WithinDuration(t, entry.CreatedAt, entryExcute.CreatedAt, time.Second)
 }
 
 func TestListEntries(t *testing.T) {
