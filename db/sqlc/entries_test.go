@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,24 +11,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createNewEntry(t *testing.T) Entry {
-
-	//create account needed because of the foreign constraints.
-	//the user needs to be already existed in accounts table.
-	accEntryParam := CreateAccountParams{
+func createAccoutEntry() Account {
+	arg := CreateAccountParams{
 		Owner:    util.RandomOwner(),
 		Balance:  util.RandomMoney(),
 		Currency: util.RandomCurrency(),
 	}
-	createEntryAcc, err := testQueries.CreateAccount(context.Background(), accEntryParam)
-	require.NoError(t, err)
-	require.NotEmpty(t, createEntryAcc)
-	require.NotZero(t, createEntryAcc.ID)
-	require.NotZero(t, createEntryAcc.CreatedAt)
+
+	account, err := testQueries.CreateAccount(context.Background(), arg)
+	if err != nil {
+		fmt.Errorf("Create Account error : %v", err)
+	}
+
+	return account
+}
+
+func createNewEntry(t *testing.T, accID Account) Entry {
 
 	//create Entry
 	args := NewEntryParams{
-		AccountID: createEntryAcc.ID,
+		AccountID: accID.ID,
 		Amount:    util.RandomMoney(),
 	}
 
@@ -45,11 +48,12 @@ func createNewEntry(t *testing.T) Entry {
 }
 
 func TestNewEntry(t *testing.T) {
-	createNewEntry(t)
+	accEntry := createAccoutEntry()
+	createNewEntry(t, accEntry)
 }
 
 func TestGetEntry(t *testing.T) {
-	entry := createNewEntry(t)
+	entry := createNewEntry(t, createAccoutEntry())
 
 	entryExcute, err := testQueries.GetEntry(context.Background(), entry.ID)
 	require.NoError(t, err)
@@ -59,13 +63,16 @@ func TestGetEntry(t *testing.T) {
 }
 
 func TestListEntries(t *testing.T) {
+
+	accEntry := createAccoutEntry()
 	for i := 0; i < 10; i++ {
-		createNewEntry(t)
+		createNewEntry(t, accEntry)
 	}
 
 	argsListEntry := ListEntriesParams{
-		Limit:  5,
-		Offset: 5,
+		AccountID: accEntry.ID,
+		Limit:     5,
+		Offset:    5,
 	}
 
 	entryExcute, err := testQueries.ListEntries(context.Background(), argsListEntry)
@@ -78,7 +85,7 @@ func TestListEntries(t *testing.T) {
 }
 
 func TestDeleteEntry(t *testing.T) {
-	newEntry := createNewEntry(t)
+	newEntry := createNewEntry(t, createAccoutEntry())
 
 	err := testQueries.DeleteEntry(context.Background(), newEntry.ID)
 	require.NoError(t, err)
